@@ -2,6 +2,7 @@ import gymnasium as gym
 import numpy as np
 import random
 import math
+import utils
 
 class SimpleTradingEnv(gym.Env):
     def __init__(self, asset_list, asset_data, episode_length, seed, cash=100000, eval=False, log=False):
@@ -15,11 +16,15 @@ class SimpleTradingEnv(gym.Env):
         self.init_cash = cash
         self.transaction_cost = 0.002
         self.seed = seed
-
         # spaces
         self.action_space = gym.spaces.Discrete(2 ** (self.n_assets))
         self.observation_space = self._set_observation_space()
-        self.reward_range = (-1*episode_length, episode_length + 100)
+        # self.reward_range = (-1*episode_length, episode_length + 100)
+
+        # multiobjective
+        self.reward_dim = 2
+        self.reward_space = gym.spaces.Box(low=np.array([-1*episode_length, -5]), high=np.array([1*episode_length, 0]), shape=(2,))
+
 
         self._set_env_variables()
 
@@ -133,6 +138,46 @@ class SimpleTradingEnv(gym.Env):
 
         return self.daily_pnl*100
     
+    def compute_portfolio_volatility(self):
+
+        assets_data = {}
+        obs_window_in_days = 30
+        df_i = self.data_i + self.episode_step
+        diff = obs_window_in_days - df_i
+    
+        if diff <= 0:
+            for asset_name in self.asset_names:
+                assets_data[asset_name] = np.take(self.data[asset_name].iloc[df_i - obs_window_in_days : df_i].values, 0, axis=1).tolist()
+        elif df_i == 0:
+            assets_data[asset_name]= [0]*obs_window_in_days*len(self.n_assets)
+        else:
+            for asset_name in self.asset_names:
+                assets_data[asset_name] = [0]*diff + np.take(self.data[asset_name].iloc[0:df_i].values, 0, axis=1).tolist()
+
+        #1 create covariance matrix
+        cov_matrix = utils.get_covariance_matrix(assets_data)
+        
+        #2 compute variance
+        w = self.assets_allocation # without cash
+        p_var = cov_matrix.mul(w, axis=0).mul(w, axis=1).sum().sum()
+
+        #3 take a square root of it
+        p_sd = np.sqrt(p_var)
+
+        # annualize
+        annual_p_sd = p_sd * 16
+
+        return annual_p_sd
+    
+    def _get_risk_reward(self):
+        return -10 * self.compute_portfolio_volatility()
+
+    def _get_morl_reward(self, terminated):
+        profit_reward = self._get_reward(terminated)
+        risk_reward = self._get_risk_reward()
+
+        return np.array([profit_reward, 0.01 * risk_reward])
+    
     def get_asset_price(self, asset_id):
         asset = self.asset_names[asset_id]
         df_i = self.data_i + self.episode_step
@@ -218,7 +263,8 @@ class SimpleTradingEnv(gym.Env):
 
         observation = self._get_observation()
         # reward = self._get_reward(terminated)
-        reward = self._get_reward_sharpe()
+        # reward = self._get_reward_sharpe()
+        reward = self._get_morl_reward(terminated)
 
         return observation, reward, terminated, truncated, info
 
