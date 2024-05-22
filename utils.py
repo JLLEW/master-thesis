@@ -104,9 +104,12 @@ def generate_test_assets():
     
     return assets
 
-def generate_test_data(scenario):
+def generate_test_data(scenario, seed):
+    random.seed(seed)
     if scenario == '3bears_1bull':
         assets = generate_3bears_1bull()
+    elif scenario == 'mix':
+        assets = generate_mix()
     elif scenario == '1bear_1bull':
         assets = generate_1bear_1bull()
     elif scenario =='2bear_1bull':
@@ -121,9 +124,12 @@ def generate_test_data(scenario):
 
     return output_dict, get_assets_name_list(scenario)
 
-def generate_train_data(scenario):
+def generate_train_data(scenario, seed):
+    random.seed(seed)
     if scenario == '3bears_1bull':
         assets = generate_3bears_1bull()
+    elif scenario == 'mix':
+        assets = generate_mix()
     elif scenario == '1bear_1bull':
         assets = generate_1bear_1bull()
     elif scenario =='2bear_1bull':
@@ -192,9 +198,31 @@ def generate_2bear_1bull():
 
     return assets
 
+def generate_mix():
+    bull_high_vol = data_generator(3000, [0.45, 0.55], random.randint(230, 400), -4, 4)
+    bull_low_vol = data_generator(3000, [0.3, 0.7], random.randint(120, 200), -1, 1)
+    bull_very_low_vol = data_generator(3000, [0.43, 0.57], random.randint(120, 200), -0.1, 0.3)
+    bear = data_generator(3000, [0.6, 0.4], random.randint(12000, 17000), -3, 2.5)
+    side = data_generator(3000, [0.5, 0.5], random.randint(25, 40), -1, 1)
+    side_high_vol = data_generator(3000, [0.5, 0.5], random.randint(15000, 50000), -2, 2)
+    
+    assets = {
+        'bull_h_vol': bull_high_vol,
+        'bull_l_vol': bull_low_vol,
+        'bull_vl_vol': bull_very_low_vol,
+        'bear': bear,
+        'side': side,
+        'side_h_vol': side_high_vol
+    }
+
+    return assets
+
+
 def get_assets_name_list(scenario):
     if scenario == '3bears_1bull':
         return ['Bear_stock_1', 'Bear_stock_2', 'Bear_stock_3', 'Bull_stock_4']
+    elif scenario == "mix":
+        return ['bull_h_vol', 'bull_l_vol', 'bull_vl_vol', 'bear', 'side', 'side_h_vol']
     elif scenario =='1bear_1bull':
         return ['stock1_bull', 'stock2_bear']
     elif scenario =='2bear_1bull':
