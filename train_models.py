@@ -41,7 +41,6 @@ def create_config(model_name, experiment_name):
             'pcn_num_er_episodes': 20
         }
 
-    hyperparameter_defaults['episode_length'] = 100
     hyperparameter_defaults['experiment_name'] = experiment_name
     
     return hyperparameter_defaults
@@ -77,6 +76,7 @@ def register_environments():
 def create_env(model_name, data, assets, seed=None):
     single_objective_models = ['DQN']
     multi_objective_models = ['PCN']
+    ep_length = 100
     env = None
     
     if model_name in single_objective_models:
@@ -84,7 +84,7 @@ def create_env(model_name, data, assets, seed=None):
             "simple-env-v0",
             asset_list = assets,
             asset_data = data,
-            episode_length=wandb.config['episode_length'],
+            episode_length=ep_length,
             seed=seed
             )
     elif model_name in multi_objective_models:
@@ -92,7 +92,7 @@ def create_env(model_name, data, assets, seed=None):
             "simple-multienv-v0",
             asset_list = assets,
             asset_data = data,
-            episode_length=wandb.config['episode_length'],
+            episode_length=ep_length,
             seed=seed)
     else:
         raise NameError(f"{model} does not exist")
@@ -145,6 +145,8 @@ def train_model(model_name, model, logger_callback, path):
             num_er_episodes=wandb.config['pcn_num_er_episodes']
             )
         model.save(savedir = path)
+        print(f"desired return: {model.desired_return}")
+        print(f"desired horizon: {model.desired_horizon}")
 
 if __name__ == '__main__':
     
@@ -161,7 +163,7 @@ if __name__ == '__main__':
     
     logger_callback, id, save_path = initialize_logger(experiment_name, config)
     data, assets = utils.generate_train_data(args.scenario, args.seed)
-    env = create_env(args.model_name, data, assets, args.seed)
+    env = create_env(args.model_name, data, assets, None)
     
     model = create_model(env, args.model_name, args.seed, id)
     train_model(args.model_name, model, logger_callback, save_path)

@@ -4,7 +4,7 @@ import random
 import math
 
 class SimpleTradingEnv(gym.Env):
-    def __init__(self, asset_list, asset_data, episode_length, seed, cash=100000, eval=False, log=False):
+    def __init__(self, asset_list, asset_data, episode_length, seed=None, cash=100000, eval=False, log=False):
         self.log = log
         self.asset_names = asset_list
         self.n_assets = len(asset_list)
@@ -42,7 +42,8 @@ class SimpleTradingEnv(gym.Env):
         self.prev_A = 0
         self.prev_B = 0
     
-    def reset(self, seed=13, **kwargs):
+    def reset(self, seed=None, **kwargs):
+        self.seed = seed
         self._set_env_variables()
         obs = self._get_observation()
         info = {}
@@ -67,6 +68,15 @@ class SimpleTradingEnv(gym.Env):
             return 2
         
         return 0
+    
+    def _market_return(self):
+        r = 0
+        for i in range(self.n_assets):
+            r += math.log(self.get_asset_price(i)/self.get_asset_price(i, -1))
+        r /= self.n_assets
+
+        # returns average log return
+        return r
     
     def _get_observation(self):
         trend_window = 3
@@ -130,12 +140,26 @@ class SimpleTradingEnv(gym.Env):
                 return (((self.portfolio_value/self.init_cash) - 1) * 100) ** 2
             else:
                 return -10
+        
+        market_return = self._market_return()
+        
+        if self.daily_pnl == 0:
+            return 0
+        elif market_return == 0:
+            return self.daily_pnl
 
-        return self.daily_pnl*100
+        if self.daily_pnl < 0:
+
+            return -1*self.daily_pnl/market_return
+        
+        return self.daily_pnl/market_return
+
     
-    def get_asset_price(self, asset_id):
+    def get_asset_price(self, asset_id, index=None):
         asset = self.asset_names[asset_id]
         df_i = self.data_i + self.episode_step
+        if index == -1:
+            df_i -= 1
         return self.data[asset].iloc[df_i].values[0]
     
     def _action_to_vec(self, action):

@@ -5,7 +5,7 @@ import math
 import utils
 
 class SimpleTradingEnv(gym.Env):
-    def __init__(self, asset_list, asset_data, episode_length, seed, cash=100000, eval=False, log=False):
+    def __init__(self, asset_list, asset_data, episode_length, seed=None, cash=100000, log=False):
         self.log = log
         self.asset_names = asset_list
         self.n_assets = len(asset_list)
@@ -47,7 +47,8 @@ class SimpleTradingEnv(gym.Env):
         self.prev_A = 0
         self.prev_B = 0
     
-    def reset(self, seed=13, **kwargs):
+    def reset(self, seed=None, **kwargs):
+        self.seed = seed
         self._set_env_variables()
         obs = self._get_observation()
         info = {}
@@ -90,43 +91,6 @@ class SimpleTradingEnv(gym.Env):
         obs = np.asarray(obs)
 
         return obs
-    
-    def _get_differential_sharpe_ratio(self):
-        time_decay = 0.004
-        delta_A = time_decay*(self.log_returns[-1] - self.prev_A)
-        delta_B = time_decay*(self.log_returns[-1]**2 - self.prev_B)
-        Dt = (self.prev_B*delta_A - 0.5*self.prev_A*delta_B)/pow((self.prev_B - self.prev_A**2), 3/2)
-        self.prev_A = self.prev_A + delta_A
-        self.prev_B = self.prev_B + delta_B
-
-        A = np.mean(np.asarray(self.log_returns[:-1]))
-        B = np.mean(np.asarray(self.log_returns[:-1])**2)
-        if A == 0 and B == 0:
-            return 0
-        
-        delta_A = self.log_returns[-1] - A
-        delta_B = self.log_returns[-1]**2 - B
-        Dt = (B*delta_A - 0.5*A*delta_B) / (B-A**2)**(3/2)
-
-        
-        Dt*= time_decay
-
-        #print(f"Dt: {Dt}")
-
-        return Dt
-    
-    def _set_sharpe_ratio_vars(self):
-        returns = np.asarray(self.log_returns[:-1])
-        self.prev_A = np.mean(returns)
-        self.prev_B = np.mean(returns**2)
-    
-    def _get_reward_sharpe(self):
-        if self.episode_step < 5:
-            return self.daily_pnl
-        elif self.episode_step == 5:
-            self._set_sharpe_ratio_vars()
-
-        return self._get_differential_sharpe_ratio()
     
     def _get_reward(self, terminated):
         # if making money for couple of days in a row, give additional reward
